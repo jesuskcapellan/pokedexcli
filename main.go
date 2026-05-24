@@ -9,13 +9,31 @@ import (
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
+	registry = map[string]cliCommand{
+		"help": {
+			name:        "help",
+			description: "Displays a help message",
+			callback:    commandHelp,
+		},
+		"exit": {
+			name:        "exit",
+			description: "Exit the Pokedex",
+			callback:    commandExit,
+		},
+	}
+
 	for {
 		fmt.Print("Pokedex > ")
 		if !scanner.Scan() {
-			fmt.Printf("%s\n", scanner.Err())
+			fmt.Println(scanner.Err())
 		}
 		input := scanner.Text()
 		cleanedInput := cleanInput(input)
-		fmt.Printf("Your command was: %s\n", cleanedInput[0])
+		command := cleanedInput[0]
+		if registry[command].callback == nil {
+			fmt.Println("Unknown command")
+		} else {
+			registry[command].callback()
+		}
 	}
 }
