@@ -10,6 +10,16 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	registry = map[string]cliCommand{
+		"map": {
+			name:        "map",
+			description: "Displays a list of areas",
+			callback:    commandMap,
+		},
+		"mapb": {
+			name:        "mapb",
+			description: "Displays the previous list of areas",
+			callback:    commandMapBack,
+		},
 		"help": {
 			name:        "help",
 			description: "Displays a help message",
@@ -20,6 +30,10 @@ func main() {
 			description: "Exit the Pokedex",
 			callback:    commandExit,
 		},
+	}
+
+	conf := config{
+		Next: "https://pokeapi.co/api/v2/location-area",
 	}
 
 	for {
@@ -33,7 +47,7 @@ func main() {
 		if registry[command].callback == nil {
 			fmt.Println("Unknown command")
 		} else {
-			registry[command].callback()
+			registry[command].callback(&conf)
 		}
 	}
 }
