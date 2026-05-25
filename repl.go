@@ -234,6 +234,22 @@ func commandInspect(conf *config, args ...string) error {
 	return nil
 }
 
+func commandPokedex(conf *config, _ ...string) error {
+	fmt.Println("Your Pokedex:")
+	for _, key := range conf.caught.List() {
+		if entry, ok := conf.caught.Get(key); ok {
+			pokemon := pokemonResponse{}
+			err := json.Unmarshal(entry, &pokemon)
+			if err != nil {
+				fmt.Println(err.Error())
+				return err
+			}
+			fmt.Printf(" - %s\n", pokemon.Name)
+		}
+	}
+	return nil
+}
+
 func getAndCacheData(key string, cache *pokecache.Cache) ([]byte, error) {
 	var data []byte
 	if entry, ok := cache.Get(key); ok {

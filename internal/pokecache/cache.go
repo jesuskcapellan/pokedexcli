@@ -37,6 +37,18 @@ func (c *Cache) Add(key string, val []byte) {
 	}
 }
 
+func (c *Cache) List() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	keys := make([]string, len(c.entries))
+	i := 0
+	for key := range c.entries {
+		keys[i] = key
+		i++
+	}
+	return keys
+}
+
 func (c *Cache) Get(key string) ([]byte, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

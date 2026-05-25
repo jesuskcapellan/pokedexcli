@@ -14,19 +14,24 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	registry = map[string]cliCommand{
+		"pokedex": {
+			name:        "pokedex",
+			description: "Displays all Pokemon you have caught",
+			callback:    commandPokedex,
+		},
 		"inspect": {
 			name:        "inspect",
-			description: "Displays details about a pokemon if it is caught",
+			description: "Displays details about a Pokemon if it is caught",
 			callback:    commandInspect,
 		},
 		"catch": {
 			name:        "catch",
-			description: "Attempts to catch a pokemon",
+			description: "Attempts to catch a Pokemon",
 			callback:    commandCatch,
 		},
 		"explore": {
 			name:        "explore",
-			description: "Displays a list of pokemon in the area",
+			description: "Displays a list of Pokemon in the area",
 			callback:    commandExplore,
 		},
 		"map": {
