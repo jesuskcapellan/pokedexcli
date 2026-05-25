@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -36,22 +38,27 @@ type areasResponse struct {
 	Previous string `json:"previous"`
 }
 
-type pokemonResponse struct {
+type areaPokemonResponse struct {
 	Name string `json:"name"`
 }
 
-type locationResponse struct {
+type areaLocationResponse struct {
 	Name string `json:"name"`
 }
 
-type pokemonsResponse struct {
-	Pokemon pokemonResponse `json:"pokemon"`
+type areaPokemonEncountersResponse struct {
+	Pokemon areaPokemonResponse `json:"pokemon"`
 }
 
 type areaResponse struct {
-	Name              string             `json:"name"`
-	PokemonEncounters []pokemonsResponse `json:"pokemon_encounters"`
-	Location          locationResponse   `json:"location"`
+	Name              string                          `json:"name"`
+	PokemonEncounters []areaPokemonEncountersResponse `json:"pokemon_encounters"`
+	Location          areaLocationResponse            `json:"location"`
+}
+
+type pokemonResponse struct {
+	Name           string `json:"name"`
+	BaseExperience int    `json:"base_experience"`
 }
 
 func cleanInput(text string) []string {
@@ -177,6 +184,47 @@ func commandExplore(conf *config, args ...string) error {
 	fmt.Println("Found Pokemon:")
 	for _, area := range area.PokemonEncounters {
 		fmt.Printf(" - %s\n", area.Pokemon.Name)
+	}
+	return nil
+}
+
+func commandCatch(conf *config, args ...string) error {
+	if len(args) != 1 {
+		fmt.Println("Must provide one pokmeon name")
+		return nil
+	}
+	id := args[0]
+	url := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", id)
+	var data []byte
+	var err error
+	if entry, ok := conf.cache.Get(url); ok {
+		data = entry
+	} else {
+		res, err := http.Get(url)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		conf.cache.Add(url, data)
+	}
+	pokemon := pokemonResponse{}
+	err = json.Unmarshal(data, &pokemon)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	fmt.Printf("Throwing a pokeball at %s...\n", strings.ToTitle(pokemon.Name))
+	chance := math.Abs(rand.NormFloat64() * 200)
+
+	if chance >= float64(pokemon.BaseExperience) {
+		fmt.Printf("You caught %s!\n", strings.ToTitle(pokemon.Name))
+	} else {
+		fmt.Printf("%s escaped!\n", strings.ToTitle(pokemon.Name))
 	}
 	return nil
 }
