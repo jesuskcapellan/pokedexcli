@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/jesuskcapellan/pokedexcli/internal/pokecache"
 )
 
 var registry map[string]cliCommand
 
 type config struct {
+	cache    *pokecache.Cache
 	Next     string
 	Previous string
 }
@@ -55,15 +58,22 @@ func commandHelp(conf *config) error {
 }
 
 func commandMap(conf *config) error {
-	res, err := http.Get(conf.Next)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
+	var data []byte
+	var err error
+	if entry, ok := conf.cache.Get(conf.Next); ok {
+		data = entry
+	} else {
+		res, err := http.Get(conf.Next)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		conf.cache.Add(conf.Next, data)
 	}
 	areas := areaResponse{}
 	err = json.Unmarshal(data, &areas)
@@ -84,15 +94,22 @@ func commandMapBack(conf *config) error {
 		fmt.Println("you're on the first page")
 		return nil
 	}
-	res, err := http.Get(conf.Previous)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
+	var data []byte
+	var err error
+	if entry, ok := conf.cache.Get(conf.Previous); ok {
+		data = entry
+	} else {
+		res, err := http.Get(conf.Previous)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		conf.cache.Add(conf.Previous, data)
 	}
 	areas := areaResponse{}
 	err = json.Unmarshal(data, &areas)

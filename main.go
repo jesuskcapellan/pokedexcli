@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/jesuskcapellan/pokedexcli/internal/pokecache"
 )
 
 func main() {
@@ -33,7 +36,8 @@ func main() {
 	}
 
 	conf := config{
-		Next: "https://pokeapi.co/api/v2/location-area",
+		Next:  "https://pokeapi.co/api/v2/location-area",
+		cache: pokecache.NewCache(5 * time.Second),
 	}
 
 	for {
