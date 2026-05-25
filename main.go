@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -13,6 +14,11 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	registry = map[string]cliCommand{
+		"inspect": {
+			name:        "inspect",
+			description: "Displays details about a pokemon if it is caught",
+			callback:    commandInspect,
+		},
 		"catch": {
 			name:        "catch",
 			description: "Attempts to catch a pokemon",
@@ -46,8 +52,9 @@ func main() {
 	}
 
 	conf := config{
-		Next:  "https://pokeapi.co/api/v2/location-area",
-		cache: pokecache.NewCache(5 * time.Second),
+		Next:   "https://pokeapi.co/api/v2/location-area",
+		cache:  pokecache.NewCache(5 * time.Second),
+		caught: pokecache.NewCache(math.MaxInt), // don't clear cache
 	}
 
 	for {

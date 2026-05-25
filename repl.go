@@ -17,6 +17,7 @@ var registry map[string]cliCommand
 
 type config struct {
 	cache    *pokecache.Cache
+	caught   *pokecache.Cache
 	Next     string
 	Previous string
 }
@@ -56,9 +57,30 @@ type areaResponse struct {
 	Location          areaLocationResponse            `json:"location"`
 }
 
+type pokemonStatResponse struct {
+	Name string `json:"name"`
+}
+
+type pokemonStatsResponse struct {
+	Stat     pokemonStatResponse `json:"stat"`
+	BaseStat int                 `json:"base_stat"`
+}
+
+type pokemonTypeResponse struct {
+	Name string `json:"name"`
+}
+
+type pokemonTypesResponse struct {
+	Type pokemonTypeResponse `json:"type"`
+}
+
 type pokemonResponse struct {
-	Name           string `json:"name"`
-	BaseExperience int    `json:"base_experience"`
+	Name           string                 `json:"name"`
+	Height         int                    `json:"height"`
+	Weight         int                    `json:"weight"`
+	BaseExperience int                    `json:"base_experience"`
+	Stats          []pokemonStatsResponse `json:"stats"`
+	Types          []pokemonTypesResponse `json:"types"`
 }
 
 func cleanInput(text string) []string {
@@ -83,22 +105,10 @@ func commandHelp(conf *config, _ ...string) error {
 }
 
 func commandMap(conf *config, _ ...string) error {
-	var data []byte
-	var err error
-	if entry, ok := conf.cache.Get(conf.Next); ok {
-		data = entry
-	} else {
-		res, err := http.Get(conf.Next)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		data, err = io.ReadAll(res.Body)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		conf.cache.Add(conf.Next, data)
+	data, err := getAndCacheData(conf.Next, conf.cache)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
 	}
 	areas := areasResponse{}
 	err = json.Unmarshal(data, &areas)
@@ -119,22 +129,10 @@ func commandMapBack(conf *config, _ ...string) error {
 		fmt.Println("you're on the first page")
 		return nil
 	}
-	var data []byte
-	var err error
-	if entry, ok := conf.cache.Get(conf.Previous); ok {
-		data = entry
-	} else {
-		res, err := http.Get(conf.Previous)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		data, err = io.ReadAll(res.Body)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		conf.cache.Add(conf.Previous, data)
+	data, err := getAndCacheData(conf.Previous, conf.cache)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
 	}
 	areas := areasResponse{}
 	err = json.Unmarshal(data, &areas)
@@ -157,22 +155,10 @@ func commandExplore(conf *config, args ...string) error {
 	}
 	id := args[0]
 	url := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s", id)
-	var data []byte
-	var err error
-	if entry, ok := conf.cache.Get(url); ok {
-		data = entry
-	} else {
-		res, err := http.Get(url)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		data, err = io.ReadAll(res.Body)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		conf.cache.Add(url, data)
+	data, err := getAndCacheData(url, conf.cache)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
 	}
 	area := areaResponse{}
 	err = json.Unmarshal(data, &area)
@@ -195,22 +181,10 @@ func commandCatch(conf *config, args ...string) error {
 	}
 	id := args[0]
 	url := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", id)
-	var data []byte
-	var err error
-	if entry, ok := conf.cache.Get(url); ok {
-		data = entry
-	} else {
-		res, err := http.Get(url)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		data, err = io.ReadAll(res.Body)
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		conf.cache.Add(url, data)
+	data, err := getAndCacheData(url, conf.cache)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
 	}
 	pokemon := pokemonResponse{}
 	err = json.Unmarshal(data, &pokemon)
@@ -223,8 +197,57 @@ func commandCatch(conf *config, args ...string) error {
 
 	if chance >= float64(pokemon.BaseExperience) {
 		fmt.Printf("You caught %s!\n", strings.ToTitle(pokemon.Name))
+		conf.caught.Add(pokemon.Name, data)
 	} else {
 		fmt.Printf("%s escaped!\n", strings.ToTitle(pokemon.Name))
 	}
 	return nil
+}
+
+func commandInspect(conf *config, args ...string) error {
+	if len(args) != 1 {
+		fmt.Println("Must provide one pokmeon name")
+		return nil
+	}
+	name := args[0]
+	if entry, ok := conf.caught.Get(name); ok {
+		pokemon := pokemonResponse{}
+		err := json.Unmarshal(entry, &pokemon)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		fmt.Printf("Name: %s\n", pokemon.Name)
+		fmt.Printf("Height: %d\n", pokemon.Height)
+		fmt.Printf("Weight: %d\n", pokemon.Weight)
+		fmt.Printf("Stats:\n")
+		for _, stat := range pokemon.Stats {
+			fmt.Printf("  - %s: %d\n", stat.Stat.Name, stat.BaseStat)
+		}
+		fmt.Printf("Types:\n")
+		for _, pokemonType := range pokemon.Types {
+			fmt.Printf("  - %s\n", pokemonType.Type.Name)
+		}
+		return nil
+	}
+	fmt.Printf("You have not caught %s.\n", name)
+	return nil
+}
+
+func getAndCacheData(key string, cache *pokecache.Cache) ([]byte, error) {
+	var data []byte
+	if entry, ok := cache.Get(key); ok {
+		data = entry
+	} else {
+		res, err := http.Get(key)
+		if err != nil {
+			return []byte{}, err
+		}
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			return []byte{}, err
+		}
+		cache.Add(key, data)
+	}
+	return data, nil
 }
