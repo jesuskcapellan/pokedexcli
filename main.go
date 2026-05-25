@@ -13,6 +13,11 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	registry = map[string]cliCommand{
+		"explore": {
+			name:        "explore",
+			description: "Displays a list of pokemon in the area",
+			callback:    commandExplore,
+		},
 		"map": {
 			name:        "map",
 			description: "Displays a list of areas",
@@ -51,7 +56,7 @@ func main() {
 		if registry[command].callback == nil {
 			fmt.Println("Unknown command")
 		} else {
-			registry[command].callback(&conf)
+			registry[command].callback(&conf, cleanedInput[1:]...)
 		}
 	}
 }

@@ -22,7 +22,7 @@ type config struct {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, ...string) error
 }
 
 type area struct {
@@ -30,10 +30,28 @@ type area struct {
 	Name string `json:"name"`
 }
 
-type areaResponse struct {
+type areasResponse struct {
 	Results  []area `json:"results"`
 	Next     string `json:"next"`
 	Previous string `json:"previous"`
+}
+
+type pokemonResponse struct {
+	Name string `json:"name"`
+}
+
+type locationResponse struct {
+	Name string `json:"name"`
+}
+
+type pokemonsResponse struct {
+	Pokemon pokemonResponse `json:"pokemon"`
+}
+
+type areaResponse struct {
+	Name              string             `json:"name"`
+	PokemonEncounters []pokemonsResponse `json:"pokemon_encounters"`
+	Location          locationResponse   `json:"location"`
 }
 
 func cleanInput(text string) []string {
@@ -41,13 +59,13 @@ func cleanInput(text string) []string {
 	return strings.Fields(lower)
 }
 
-func commandExit(conf *config) error {
+func commandExit(conf *config, _ ...string) error {
 	fmt.Printf("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(conf *config) error {
+func commandHelp(conf *config, _ ...string) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println()
@@ -57,7 +75,7 @@ func commandHelp(conf *config) error {
 	return nil
 }
 
-func commandMap(conf *config) error {
+func commandMap(conf *config, _ ...string) error {
 	var data []byte
 	var err error
 	if entry, ok := conf.cache.Get(conf.Next); ok {
@@ -75,7 +93,7 @@ func commandMap(conf *config) error {
 		}
 		conf.cache.Add(conf.Next, data)
 	}
-	areas := areaResponse{}
+	areas := areasResponse{}
 	err = json.Unmarshal(data, &areas)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -89,7 +107,7 @@ func commandMap(conf *config) error {
 	return nil
 }
 
-func commandMapBack(conf *config) error {
+func commandMapBack(conf *config, _ ...string) error {
 	if conf.Previous == "" {
 		fmt.Println("you're on the first page")
 		return nil
@@ -111,7 +129,7 @@ func commandMapBack(conf *config) error {
 		}
 		conf.cache.Add(conf.Previous, data)
 	}
-	areas := areaResponse{}
+	areas := areasResponse{}
 	err = json.Unmarshal(data, &areas)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -121,6 +139,44 @@ func commandMapBack(conf *config) error {
 	conf.Previous = areas.Previous
 	for _, area := range areas.Results {
 		fmt.Println(area.Name)
+	}
+	return nil
+}
+
+func commandExplore(conf *config, args ...string) error {
+	if len(args) != 1 {
+		fmt.Println("Must provide one area name or id")
+		return nil
+	}
+	id := args[0]
+	url := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s", id)
+	var data []byte
+	var err error
+	if entry, ok := conf.cache.Get(url); ok {
+		data = entry
+	} else {
+		res, err := http.Get(url)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		conf.cache.Add(url, data)
+	}
+	area := areaResponse{}
+	err = json.Unmarshal(data, &area)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	fmt.Printf("Exploring %s...\n", area.Location.Name)
+	fmt.Println("Found Pokemon:")
+	for _, area := range area.PokemonEncounters {
+		fmt.Printf(" - %s\n", area.Pokemon.Name)
 	}
 	return nil
 }
